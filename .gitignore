@@ -3,5 +3,6 @@
 __pycache__/
 *.pyc
 payload.json
+week-*.json
 missions.json
 .asa_state.json
