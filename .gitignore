@@ -2,7 +2,6 @@
 .venv/
 __pycache__/
 *.pyc
-payload.json
-week-*.json
+payloads/
 missions.json
 .asa_state.json

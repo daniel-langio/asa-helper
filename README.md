@@ -41,8 +41,12 @@ committing a snapshot that can drift from the org's real mission list.
 
 ## Payload file
 
-Copy `payload.example.json` to `payload.json` and fill in your own entries — a list of days, each
-with the missions you worked on that day (use the codes from `missions.json`):
+Copy `payload.example.json` to a new file under `payloads/` (gitignored — these hold real
+personal work-log data) and fill in your own entries — a list of days, each with the missions
+you worked on that day (use the codes from `missions.json`). Give each payload file a name
+specific to what it covers (e.g. `payloads/week-34.json`, `payloads/2026-08-27_2026-08-28.json`)
+rather than reusing one generic filename across requests, so old payloads stay around for
+reference instead of getting silently overwritten:
 
 ```json
 [
@@ -66,7 +70,7 @@ with the missions you worked on that day (use the codes from `missions.json`):
 
 ```bash
 source .venv/bin/activate
-python3 submit_daily_execution.py payload.json
+python3 submit_daily_execution.py payloads/week-34.json
 # or rely on $ASA_PAYLOAD_FILE / the payload.json default:
 python3 submit_daily_execution.py
 ```
@@ -89,8 +93,8 @@ crontab -e
 0 18 * * 1-5 cd /home/langio/Documents/Projects/asa-daily-execution && .venv/bin/python3 submit_daily_execution.py >> /var/log/asa-daily.log 2>&1
 ```
 
-For a daily cron run you'd typically keep `payload.json` to a single entry for "today" and
-regenerate/edit it each day (or point `--payload` at whatever file your own upstream process
+For a daily cron run you'd typically keep a dedicated `payloads/today.json` to a single entry and
+regenerate/edit it each day (or point the CLI arg at whatever file your own upstream process
 produces).
 
 ## Notes

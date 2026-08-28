@@ -1,19 +1,21 @@
 ---
 name: asa-weekly-report
-description: Build a daily-execution payload for Asa from git history in the BPartners repos, and submit it. Use when the user asks to report/log/fill their Asa daily execution for a week, or references "the Nth week", a date range, or "based on my github history" in the context of this project.
+description: Build a daily-execution payload for Asa from git history in the BPartners repos (a full week, or a single/few-day ad-hoc log), and submit it after confirmation. Use when the user asks to report/log/fill their Asa daily execution, references "the Nth week", "today"/"yesterday", a date range, or "based on my github history" in the context of this project.
 ---
 
-# Asa weekly report
+# Asa daily/weekly report
 
-Generates and submits a `week-<N>.json` (or `payload.json`) payload for
-`submit_daily_execution.py` in this repo, sourced from the user's own git commit
-history rather than asked for by hand.
+Generates a payload JSON for `submit_daily_execution.py` in this repo, sourced from the user's
+own git commit history rather than asked for by hand, then submits it — but only after the user
+has confirmed the actual content.
 
 ## Scope (specific to this user/org — don't re-derive, just use)
 
-- Mission code to report: **`NS-BP`** only ("BPartners"). The user has said they only want
-  BPartners-related work reported through this tool, even though other mission codes exist
-  (see `missions.json` / `fetch_missions.py` if the full list is ever needed again).
+- Default mission code to report: **`NS-BP`** only ("BPartners"). The user has said they only
+  want BPartners-related work reported through this tool by default, even though other mission
+  codes exist (see `missions.json` / `fetch_missions.py` if the full list is ever needed again).
+  Other codes (e.g. `CA-ABNP` for unpaid absence) are used only when the user explicitly asks
+  for them for a given day (see "Daily / ad-hoc logging" below).
 - BPartners-related repos, all under `~/Documents/Projects/`:
   `bpartners-api`, `bpartners-web`, `genai`, `geo-jobs`.
 - Git author identifiers for this user (use with `git log --author`):
@@ -23,10 +25,11 @@ history rather than asked for by hand.
 
 ## Step 1 — Resolve the date range
 
-If the user gives explicit dates, use those. If they say "the Nth week" of a month, compute
-it the same way Asa's own calendar groups weeks — `WeekFields.of(Locale.FRANCE).weekOfYear()`
-in `ThMonth.java`, which is plain ISO week-of-year (Monday-start). In Python that's
-`date.isocalendar()[1]`. Concretely:
+If the user gives explicit dates (including relative ones like "today"/"yesterday" — resolve
+against the actual current date, don't guess), use those. If they say "the Nth week" of a
+month, compute it the same way Asa's own calendar groups weeks —
+`WeekFields.of(Locale.FRANCE).weekOfYear()` in `ThMonth.java`, which is plain ISO week-of-year
+(Monday-start). In Python that's `date.isocalendar()[1]`. Concretely:
 
 1. Enumerate every day in the target month, group by `isocalendar()[1]`.
 2. Drop any leading/trailing partial week that's mostly outside the month (e.g. a 1-2 day
@@ -34,6 +37,9 @@ in `ThMonth.java`, which is plain ISO week-of-year (Monday-start). In Python tha
 3. "The Nth week" = the Nth entry in that ordered list. Report only weekdays (Mon-Fri) within
    it unless told otherwise.
 4. Note the resulting ISO week number (e.g. 34) — used for the output filename.
+
+A request for "today", "yesterday", or a short explicit list of dates is **daily/ad-hoc
+logging** (see below), not a full week — don't force it through the week-number naming.
 
 ## Step 2 — Gather commits
 
@@ -82,12 +88,32 @@ repo(s) with the largest rounding remainder) rather than fudging arbitrarily.
 repo/day — don't just restate the raw commit messages verbatim if they're cryptic (e.g. "fixup",
 "wip") — infer the real thread of work from the surrounding commits.
 
+## Daily / ad-hoc logging (e.g. "log today and yesterday")
+
+For a short, specific request rather than a full week:
+
+- Mission codes and percentage splits aren't limited to `NS-BP` here — the user may explicitly
+  name other codes and how the day should split (e.g. "both on 0.5 total work, the other 0.5 as
+  CA-ABNP"). Use whatever split the user states.
+- When the user gives an explicit comment for a mission, use it verbatim — don't override it
+  with a git-derived one.
+- For the `NS-BP`/BPartners portion where no comment was given, fall back to Step 2/3's
+  git-history-derived comment as usual.
+- For any non-BPartners mission (absences, care days, etc.) where the user hasn't given a
+  reason/comment, **ask** — don't invent a reason for what's effectively an official leave
+  record. This is exactly the kind of thing only the user knows.
+
 ## Step 4 — Write and validate
 
-Write the array to `week-<N>.json` (N = the ISO week number from Step 1) if it's a clean single
-week, otherwise use a name the user asked for or `payload.json`. This file holds real personal
-work-log data — it must stay gitignored (already covered by `week-*.json` / `payload.json` in
-`.gitignore`; extend the pattern if using a different name).
+**Always write to a new file** — never overwrite an existing payload from a previous request,
+even if it covers the same or overlapping dates (a follow-up correction is still a new file; the
+user can tell you to delete the old one if they want). All generated payloads live under
+`payloads/` (already gitignored as a whole directory in `.gitignore`, since they hold real
+personal work-log data), named descriptively for what they cover:
+
+- A full week → `payloads/week-<N>.json` (N = the ISO week number from Step 1).
+- Ad-hoc/daily → `payloads/<start-date>_<end-date>.json`, or `payloads/<start-date>.json` for a
+  single day, or another short descriptive name if the user asked for one.
 
 Validate before considering it done:
 
@@ -95,22 +121,28 @@ Validate before considering it done:
 .venv/bin/python3 -c "
 import sys; sys.path.insert(0, '.')
 from submit_daily_execution import load_payload
-entries = load_payload('week-<N>.json')
+entries = load_payload('payloads/<name>.json')
 for e in entries:
     print(e['date'], len(e['missions']), 'missions, sum=', sum(m['percentage'] for m in e['missions']))
 print('OK,', len(entries), 'entries')
 "
 ```
 
-## Step 5 — Submit
+## Step 5 — Confirm, then submit
 
 Submitting writes real records to the live Asa instance (`asa.poja.io`) — this is a consequential,
-hard-to-reverse action visible to the user's org. Only run this step if the user's request for
-this skill explicitly included submitting (e.g. "build and submit", "run it too") — otherwise stop
-after Step 4 and hand the file back for review first.
+hard-to-reverse action visible to the user's org.
+
+**Always show the user the actual payload content (dates, mission codes, percentages, comments)
+and get explicit confirmation before running the submit step** — even if the original request
+already said "submit" or "run it". A prior instruction to submit is not a standing waiver for
+this specific payload's content; confirm every time, right before submitting, not just after
+building it.
+
+Only after confirmation:
 
 ```bash
-PYTHONUNBUFFERED=1 .venv/bin/python3 submit_daily_execution.py week-<N>.json
+PYTHONUNBUFFERED=1 .venv/bin/python3 submit_daily_execution.py payloads/<name>.json
 ```
 
 Requires `.venv` set up (`pip install -r requirements.txt && playwright install chromium`) and
