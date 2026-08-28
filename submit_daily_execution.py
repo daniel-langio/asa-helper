@@ -11,6 +11,10 @@ MAX_MISSIONS_PER_DAY = 5
 PERCENTAGE_SUM_TOLERANCE = 0.01
 
 
+def log(message):
+    print(f"[submit] {message}", flush=True)
+
+
 def load_payload(path):
     with open(path) as f:
         entries = json.load(f)
@@ -41,20 +45,30 @@ def normalize_percentage(value):
 
 
 def submit_entry(page, entry):
+    log(f"{entry['date']}: navigating to /daily-execution")
     page.goto(f"{ASA_BASE_URL}/daily-execution")
-    page.fill("#date", entry["date"])
+
+    log(f"{entry['date']}: setting date field")
+    # #date is a readonly flatpickr-controlled input -- .fill() refuses to write to a readonly
+    # field and just retries until its 30s timeout, so set the value directly instead.
+    page.eval_on_selector("#date", "(el, val) => { el.value = val; }", entry["date"])
 
     for i, mission in enumerate(entry["missions"], start=1):
+        log(f"{entry['date']}: filling mission slot {i} ({mission['code']}, {mission['percentage']})")
         page.select_option(f'select[name="missionCode{i}"]', mission["code"])
         page.fill(f'input[name="missionPercentage{i}"]', str(normalize_percentage(mission["percentage"])))
         page.fill(f'textarea[name="missionComment{i}"]', mission["comment"])
 
+    log(f"{entry['date']}: submitting form")
     page.click('button[type="submit"]')
     page.wait_for_url(f"{ASA_BASE_URL}/work-and-care-calendar", timeout=15000)
+    log(f"{entry['date']}: submission confirmed")
 
 
 def run(payload_path):
+    log(f"loading payload from {payload_path}")
     entries = load_payload(payload_path)
+    log(f"{len(entries)} entries loaded and validated")
 
     failures = []
     with sync_playwright() as p:

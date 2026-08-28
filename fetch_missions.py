@@ -13,7 +13,12 @@ from asa_auth import get_authenticated_page
 MISSIONS_RE = re.compile(r"const missions = (\[.*?\]);", re.DOTALL)
 
 
+def log(message):
+    print(f"[fetch] {message}", flush=True)
+
+
 def fetch_missions(page):
+    log("re-fetching page HTML to read the inlined missions array")
     # Re-fetch the page's raw HTML (same authenticated session) rather than reading the live DOM,
     # since `missions` is a local const inside a function and isn't reachable as a global.
     html = page.evaluate("() => fetch(window.location.href).then(r => r.text())")
@@ -32,6 +37,7 @@ def run(output_path):
         missions = fetch_missions(page)
         browser.close()
 
+    log(f"writing {len(missions)} missions to {output_path}")
     with open(output_path, "w") as f:
         json.dump(missions, f, indent=2, ensure_ascii=False)
 
