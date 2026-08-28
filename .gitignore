@@ -1,0 +1,7 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+payload.json
+missions.json
+.asa_state.json

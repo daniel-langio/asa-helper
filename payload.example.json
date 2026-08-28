@@ -1,0 +1,15 @@
+[
+  {
+    "date": "2026-08-27",
+    "missions": [
+      { "code": "SOME_MISSION_CODE", "percentage": 0.6, "comment": "Worked on X" },
+      { "code": "OTHER_MISSION_CODE", "percentage": 0.4, "comment": "Reviewed Y" }
+    ]
+  },
+  {
+    "date": "2026-08-28",
+    "missions": [
+      { "code": "SOME_MISSION_CODE", "percentage": 1, "comment": "Finished X" }
+    ]
+  }
+]
