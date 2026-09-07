@@ -1,4 +1,4 @@
-# asa-daily-execution
+# asa-helper
 
 Automates submitting the daily [Asa](https://github.com/hei-teacher/asa) work-execution form
 (`/daily-execution`) without going through the web UI by hand.
@@ -90,7 +90,7 @@ crontab -e
 ```
 ```
 # Weekdays at 18:00
-0 18 * * 1-5 cd /home/langio/Documents/Projects/asa-daily-execution && .venv/bin/python3 submit_daily_execution.py >> /var/log/asa-daily.log 2>&1
+0 18 * * 1-5 cd /home/langio/Projects/asa-helper && .venv/bin/python3 submit_daily_execution.py >> /var/log/asa-daily.log 2>&1
 ```
 
 For a daily cron run you'd typically keep a dedicated `payloads/today.json` to a single entry and
